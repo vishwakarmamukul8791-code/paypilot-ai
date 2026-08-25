@@ -15,7 +15,8 @@ PayPilot AI is a **fake-money public portfolio simulation**. It does not accept 
 - > ₹2,000 requires explicit human approval.
 - User-requested confirmation thresholds can be stricter than the global threshold.
 - Every authorized payment is revalidated immediately before execution.
-- High-risk / over-limit / insufficient-funds / stale bill or destination state blocks execution.
+- HIGH-risk requests are escalated to explicit human approval when otherwise      eligible; a request is blocked when the configured hard risk threshold is reached or another deterministic rule fails.
+- Platform-limit, insufficient-funds, daily-limit, stale bill/destination and invalid-state failures always block execution.
 
 ### Integrity and replay safety
 - Decimal / fixed-point money representation.

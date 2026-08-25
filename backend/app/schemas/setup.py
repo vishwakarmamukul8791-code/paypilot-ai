@@ -18,7 +18,7 @@ class AccountSetup(BaseModel):
     owner_name: str = Field(min_length=2, max_length=80)
     nickname: str = Field(default="Primary", min_length=2, max_length=60)
     account_type: Literal["savings", "current", "wallet"] = "savings"
-    opening_balance: Decimal = Field(gt=0, le=Decimal("10000000"), max_digits=14, decimal_places=2)
+    opening_balance: Decimal = Field(gt=0, le=Decimal("200000"), max_digits=14, decimal_places=2)
     daily_limit: Decimal = Field(gt=0, le=Decimal("200000"), max_digits=14, decimal_places=2)
 
     @field_validator("owner_name", "nickname")

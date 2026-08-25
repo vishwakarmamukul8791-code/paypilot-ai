@@ -97,12 +97,39 @@ def test_high_risk_request_above_50000_escalates_to_human_approval(client,fresh_
     assert run['payment']['risk_level']=='HIGH' and run['payment']['risk_score']==90
 
 
-def test_platform_cap_still_blocks_amount_above_100000(client,fresh_session_headers):
+def test_platform_cap_still_blocks_amount_above_100000(
+    client,
+    fresh_session_headers,
+):
     h = fresh_session_headers
-    assert client.post('/api/account', headers=h, json={'owner_name':'Cap Tester','opening_balance':250000,'daily_limit':200000}).status_code == 200
-    assert client.post('/api/targets', headers=h, json={'name':'Alpha Payee','kind':'transfer','reference':'CAP-001'}).status_code == 200
-    run=start(client,h,'Pay ₹1,20,000 to Alpha Payee')
-    assert run['status']=='BLOCKED'
+
+    assert client.post(
+        '/api/account',
+        headers=h,
+        json={
+            'owner_name': 'Cap Tester',
+            'opening_balance': 200000,
+            'daily_limit': 200000,
+        },
+    ).status_code == 200
+
+    assert client.post(
+        '/api/targets',
+        headers=h,
+        json={
+            'name': 'Alpha Payee',
+            'kind': 'transfer',
+            'reference': 'CAP-001',
+        },
+    ).status_code == 200
+
+    run = start(
+        client,
+        h,
+        'Pay ₹1,20,000 to Alpha Payee',
+    )
+
+    assert run['status'] == 'BLOCKED'
     assert 'Per-payment demo limit is ₹100,000' in run['summary']
 
 def test_pending_payment_blocks_safely_if_destination_is_removed_before_approval(client,session_headers):

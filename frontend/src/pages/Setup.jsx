@@ -103,7 +103,26 @@ const bills = useMemo(() => data?.bills || [], [data?.bills])
             <label><span>Account nickname</span><input required value={account.nickname} onChange={(e) => setAccount({ ...account, nickname: e.target.value })} placeholder="Salary, Travel, Wallet…" /></label>
             <label><span>Owner name</span><input required value={account.owner_name} onChange={(e) => setAccount({ ...account, owner_name: e.target.value })} placeholder="Account owner" /></label>
             <label><span>Account type</span><select value={account.account_type} onChange={(e) => setAccount({ ...account, account_type: e.target.value })}><option value="savings">Savings</option><option value="current">Current</option><option value="wallet">Wallet</option></select></label>
-            {!editingAccountId && <label><span>Opening balance</span><input required min="1" step="0.01" type="number" value={account.opening_balance} onChange={(e) => setAccount({ ...account, opening_balance: e.target.value })} placeholder="₹50,000" /></label>}
+            {!editingAccountId && (
+              <label>
+               <span>Opening balance</span>
+              <input
+               required
+               min="1"
+               max="200000"
+               step="0.01"
+               type="number"
+               value={account.opening_balance}
+               onChange={(e) =>
+                setAccount({
+                 ...account,
+          opening_balance: e.target.value,
+        })
+      }
+      placeholder="Max ₹2,00,000"
+    />
+  </label>
+)}
             <label><span>Daily payment limit</span><input required min="1" max="200000" step="0.01" type="number" value={account.daily_limit} onChange={(e) => setAccount({ ...account, daily_limit: e.target.value })} placeholder="Max ₹2,00,000" /></label>
             {editingAccountId && <label className="toggle-row"><input type="checkbox" checked={account.is_active !== false} onChange={(e) => setAccount({ ...account, is_active: e.target.checked })} /><span>Account active for payments</span></label>}
             <button className="primary" disabled={busy}>{editingAccountId ? 'Save account changes' : 'Add account'}</button>

@@ -63,7 +63,7 @@ Real authN/authZ, KYC/AML, fraud systems, payment rails, distributed locks/idemp
 The selected source account is persisted on `AgentRun`, copied into `PaymentRequest`, and then onto every `Transaction`. Daily-limit checks, balance reads, row locking, execution and spending analysis all use that same `account_id`. The frontend selection is therefore not just presentation state.
 
 **Why can account metadata be edited but not the balance field directly?**  
-A hidden balance edit would destroy ledger integrity. PayPilot lets the user change nickname, type, daily limit and active/paused state, while balance changes happen through explicit `add_money` credits or payment debits so the transaction history still reconciles.
+A hidden balance edit would destroy ledger integrity. PayPilot establishes the opening balance once at account creation. After that, balances move only through payment debits or atomic internal account-to-account transfers with matching DEBIT/CREDIT ledger entries.
 
 **What standard payment-product behavior is represented?**  
-Multiple funding accounts, primary/default account selection, pause/resume, add-money credits, saved payees, bill management, source-account selection, transaction search/filter/export and explicit payment approval. These are simulated product features layered around the agent rather than replacing the core agentic workflow.
+Multiple funding accounts, primary/default account selection, pause/resume, atomic account-to-account transfers, saved payees, bill management, source-account selection, transaction search/filter/export and explicit payment approval. These are simulated product features layered around the agent rather than replacing the core agentic workflow.
