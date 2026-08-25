@@ -1,0 +1,40 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=demo
+      - DATABASE_URL=sqlite:////data/paypilot.db
+      - LANGGRAPH_DB_PATH=/data/langgraph.db
+      - CORS_ORIGINS=http://localhost:5173
+      - LANGGRAPH_STRICT_MSGPACK=true
+      - DEMO_SESSION_TTL_HOURS=${DEMO_SESSION_TTL_HOURS:-24}
+      - AGENT_RUNS_PER_MINUTE=${AGENT_RUNS_PER_MINUTE:-12}
+      - GLOBAL_AGENT_RUNS_PER_MINUTE=${GLOBAL_AGENT_RUNS_PER_MINUTE:-120}
+      - SESSION_CREATES_PER_MINUTE=${SESSION_CREATES_PER_MINUTE:-60}
+      - MAX_TRANSFER_AMOUNT=${MAX_TRANSFER_AMOUNT:-100000}
+      - AUTO_EXECUTE_THRESHOLD=${AUTO_EXECUTE_THRESHOLD:-2000}
+      - HIGH_RISK_BLOCK_SCORE=${HIGH_RISK_BLOCK_SCORE:-95}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.7-flash}
+    volumes:
+      - paypilot_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  paypilot_data:
