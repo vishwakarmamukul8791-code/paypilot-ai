@@ -114,6 +114,10 @@ and asks:
 Pay ₹5,000 to Rahul
 ```
 
+The deterministic parser also accepts the amount-first form
+`₹5,000 to Rahul Pay`. INR amounts are rejected when comma grouping is
+ambiguous or when more than two decimal places are supplied.
+
 PayPilot:
 
 1. parses the request into structured intent
@@ -263,6 +267,9 @@ Payment execution uses:
 - execution-time revalidation
 
 Internal account transfers additionally lock participating accounts in stable ID order and create paired DEBIT/CREDIT rows in one transaction.
+Reusing an internal-transfer idempotency key with a different source, destination,
+or amount is rejected. Bill execution also locks the authoritative pending bill
+row so two source accounts cannot concurrently settle the same bill.
 
 A failed transfer cannot leave only one side of the ledger updated.
 
