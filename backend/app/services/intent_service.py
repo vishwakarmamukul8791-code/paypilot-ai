@@ -7,8 +7,8 @@ from app.schemas.agent import PaymentConditions, PaymentIntent
 
 
 _MONEY_CAPTURE_PATTERNS = [
-    r"(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d{1,2})?)",
-    r"([\d,]+(?:\.\d{1,2})?)\s*(?:₹|rs\.?|inr)",
+    r"(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d+)?)",
+    r"([\d,]+(?:\.\d+)?)\s*(?:₹|rs\.?|inr)",
 ]
 
 
@@ -20,7 +20,10 @@ def _parse_money_token(token: str) -> float | None:
     instead of silently stripping commas and authorizing the wrong amount.
     """
     token = token.strip()
-    whole = token.split(".", 1)[0]
+    parts = token.split(".", 1)
+    whole = parts[0]
+    if len(parts) == 2 and not 1 <= len(parts[1]) <= 2:
+        return None
     if "," not in whole:
         valid = bool(re.fullmatch(r"\d+", whole))
     else:
@@ -102,8 +105,8 @@ def _clean_name(value: str | None) -> str | None:
 
 
 def _strip_money_token(value: str) -> str:
-    value = re.sub(r"(?:₹|rs\.?|inr)\s*[\d,]+(?:\.\d{1,2})?", " ", value, flags=re.I)
-    value = re.sub(r"[\d,]+(?:\.\d{1,2})?\s*(?:₹|rs\.?|inr)", " ", value, flags=re.I)
+    value = re.sub(r"(?:₹|rs\.?|inr)\s*[\d,]+(?:\.\d+)?", " ", value, flags=re.I)
+    value = re.sub(r"[\d,]+(?:\.\d+)?\s*(?:₹|rs\.?|inr)", " ", value, flags=re.I)
     return " ".join(value.split())
 
 
@@ -172,6 +175,7 @@ def parse_intent_rules(message: str) -> PaymentIntent:
             r"(?:transfer|send|pay)\s+(?:₹|rs\.?|inr)?\s*[\d,]+(?:\.\d{1,2})?\s+(?:to\s+)?([A-Za-z0-9][A-Za-z0-9 &._-]{0,60}?)(?:\s+(?:only|but|if|and|please)|$)",
             r"(?:transfer|send|pay)\s+(?:to\s+)?([A-Za-z0-9][A-Za-z0-9 &._-]{0,60}?)\s+(?:₹|rs\.?|inr)\s*[\d,]+(?:\.\d{1,2})?(?:\s|$)",
             r"recharge\s+([A-Za-z0-9][A-Za-z0-9 &._-]{0,60}?)\s+(?:for\s+)?(?:₹|rs\.?|inr)\s*[\d,]+(?:\.\d{1,2})?(?:\s|$)",
+            r"(?:₹|rs\.?|inr)\s*[\d,]+(?:\.\d{1,2})?\s+(?:to\s+)?([A-Za-z0-9][A-Za-z0-9 &._-]{0,60}?)\s+(?:pay|send|transfer)(?:\s+please)?$",
             r"(?:transfer|send|pay)\s+(?:to\s+)?([A-Za-z0-9][A-Za-z0-9 &._-]{0,60}?)(?:\s+(?:only|but|if|and|please)|$)",
         ]
         for pattern in patterns:
