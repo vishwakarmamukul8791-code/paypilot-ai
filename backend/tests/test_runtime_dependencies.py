@@ -11,7 +11,10 @@ def test_langgraph_runtime_initializes_with_installed_dependencies(tmp_path):
         runtime.close()
 
 
-def test_google_genai_sdk_exposes_interactions_client():
+def test_google_genai_sdk_exposes_interactions_client(monkeypatch):
+    # SDK surface validation must not depend on a developer/CI proxy setup.
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.delenv(name, raising=False)
     from google import genai
 
     client = genai.Client(api_key="test-key")
