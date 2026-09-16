@@ -523,12 +523,39 @@ def transactions(x_demo_session: str | None = Header(default=None, alias="X-Demo
 @router.post("/agent/run", response_model=AgentRunOut)
 def start_agent(payload: AgentRequest, x_demo_session: str | None = Header(default=None, alias="X-Demo-Session"), db: Session = Depends(get_db)):
     sid = _session(db, x_demo_session)
+    run_id = (
+        str(uuid.uuid5(uuid.UUID(sid), payload.operation_id))
+        if payload.operation_id else str(uuid.uuid4())
+    )
+
+    def existing_result():
+        existing = db.get(AgentRun, run_id)
+        if not existing:
+            return None
+        if existing.user_request != payload.message or (
+            payload.source_account_id is not None and existing.account_id != payload.source_account_id
+        ):
+            raise HTTPException(status_code=409, detail="Operation ID was already used for a different request.")
+        if existing.status in {"RUNNING", "PROCESSING"}:
+            raise HTTPException(status_code=409, detail="This operation is still processing. Retry with the same operation ID.")
+        return run_detail(db, run_id)
+
     with payment_execution_lock(sid):
+        result = existing_result()
+        if result is not None:
+            return result
         account = _account_or_409(db, sid, payload.source_account_id)
         _enforce_agent_rate_limit(db, sid)
-        run_id = str(uuid.uuid4())
         db.add(AgentRun(id=run_id, session_id=sid, account_id=account.id, user_request=payload.message, status="RUNNING"))
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            # The primary key arbitrates concurrent retries across workers.
+            db.rollback()
+            result = existing_result()
+            if result is None:
+                raise
+            return result
         started = time.perf_counter()
         try:
             runtime.start({"run_id": run_id, "session_id": sid, "account_id": account.id, "user_request": payload.message})
@@ -537,6 +564,9 @@ def start_agent(payload: AgentRequest, x_demo_session: str | None = Header(defau
         except Exception as exc:
             db.rollback(); db.expire_all()
             run = db.get(AgentRun, run_id)
+            if run and run.status in {"COMPLETED", "AWAITING_APPROVAL", "BLOCKED", "REJECTED"}:
+                # A later audit/checkpoint failure cannot undo a committed payment.
+                return run_detail(db, run_id)
             if run:
                 run.status = "FAILED"; run.summary = "Agent run failed safely; no payment was executed."; db.commit()
                 log_event(db, run_id, "ERROR", "Agent orchestration failed safely", {"error_type": type(exc).__name__})

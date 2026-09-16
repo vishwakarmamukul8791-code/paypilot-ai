@@ -218,6 +218,10 @@ Unsupported or dangerous instructions are blocked deterministically, including:
 
 Payments above ₹2,000 enter an explicit approval state.
 
+Explicit requests such as `Pay ₹100 to Rahul only if I approve` also require
+human approval, even below the automatic-execution threshold. Unsupported
+payment conditions are blocked rather than silently discarded.
+
 ```text
 RUNNING
    ↓
@@ -241,6 +245,13 @@ If the balance, daily limit, bill, destination or other authoritative state chan
 ## Idempotency and concurrency
 
 Financial side effects are protected against retries and stale concurrent state.
+
+The frontend submits an `operation_id` to `/api/agent/run` and retains it after
+an uncertain network outcome. Retrying the same operation returns the existing
+run without another debit; changing its message or explicit source account
+returns a conflict. A new intentional payment gets a new operation ID. API
+clients must supply this optional field to receive request-level retry protection.
+Expired sessions are not automatically replaced and replayed for payment requests.
 
 Payment execution uses:
 
@@ -430,6 +441,7 @@ Frontend:
 ```bash
 cd frontend
 npm run lint
+npm test
 npm run build
 ```
 

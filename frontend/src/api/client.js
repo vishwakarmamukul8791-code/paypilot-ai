@@ -1,8 +1,9 @@
 const API_BASE = (
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+  import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000'
 ).replace(/\/$/, '')
 
 const SESSION_KEY = 'paypilot_demo_session'
+const PENDING_OPERATION_KEY = 'paypilot_pending_operation'
 const REQUEST_TIMEOUT_MS = 30000
 
 let sessionPromise = null
@@ -167,23 +168,18 @@ async function request(
 
   if (
     response.status === 404 &&
-    retrySession &&
     typeof data?.detail === 'string' &&
     data.detail.includes('Simulation session')
   ) {
     clearSession(sessionId)
 
-    return request(
-      path,
-      options,
-      false,
-    )
+    if (retrySession) return request(path, options, false)
   }
 
   if (!response.ok) {
-    throw new Error(
-      errorMessage(data, response.status),
-    )
+    const error = new Error(errorMessage(data, response.status))
+    error.status = response.status
+    throw error
   }
 
   return data
@@ -202,21 +198,50 @@ export const api = {
   runDetail: (id) =>
     request(`/api/agent/runs/${id}`),
 
-  startAgent: (
+  startAgent: async (
     message,
     sourceAccountId,
-  ) =>
-    request(
-      '/api/agent/run',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          message,
-          source_account_id:
-            sourceAccountId || null,
-        }),
-      },
-    ),
+  ) => {
+    const sessionId = await ensureSession()
+    const accountId = sourceAccountId || null
+    let pending
+    try {
+      pending = JSON.parse(localStorage.getItem(PENDING_OPERATION_KEY) || 'null')
+    } catch {
+      pending = null
+    }
+    if (pending && pending.sessionId === sessionId && (
+      pending.message !== message || pending.accountId !== accountId
+    )) {
+      throw new Error('Retry your previous payment request first to confirm its outcome. You can also inspect Agent trace or reset the simulation.')
+    }
+    if (!pending || pending.sessionId !== sessionId) {
+      pending = { sessionId, accountId, message, operationId: crypto.randomUUID() }
+      localStorage.setItem(PENDING_OPERATION_KEY, JSON.stringify(pending))
+    }
+    let result
+    try {
+      result = await request(
+        '/api/agent/run',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            message,
+            source_account_id: accountId,
+            operation_id: pending.operationId,
+          }),
+        },
+        false,
+      )
+    } catch (error) {
+      if ([400, 422, 429].includes(error.status)) {
+        localStorage.removeItem(PENDING_OPERATION_KEY)
+      }
+      throw error
+    }
+    localStorage.removeItem(PENDING_OPERATION_KEY)
+    return result
+  },
 
   decide: (
     id,
@@ -341,11 +366,14 @@ export const api = {
       },
     ),
 
-  reset: () =>
-    request(
+  reset: async () => {
+    const result = await request(
       '/api/demo/reset',
       {
         method: 'POST',
       },
-    ),
+    )
+    localStorage.removeItem(PENDING_OPERATION_KEY)
+    return result
+  },
 }

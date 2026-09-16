@@ -137,7 +137,22 @@ def parse_intent_rules(message: str) -> PaymentIntent:
         r"(?:ask me|confirm|approval).*?(?:above|over|more than)\s*(?:₹|rs\.?|inr)?\s*([\d,]+)",
         r"(?:above|over|more than)\s*(?:₹|rs\.?|inr)?\s*([\d,]+).*?(?:ask|confirm|approval)",
     ])
-    conditions = PaymentConditions(minimum_remaining_balance=min_remaining, confirm_if_above=confirm_above)
+    approval_pattern = (
+        r"\b(?:only\s+(?:if|after)\s+i\s+(?:approve|confirm)|"
+        r"(?:ask\s+me|confirm\s+with\s+me)(?:\s+first|\s+before\s+(?:paying|payment))?|"
+        r"(?:require|request)\s+my\s+approval)\b"
+    )
+    requires_approval = bool(re.search(approval_pattern, amount_text, re.I))
+    amount_text = re.sub(approval_pattern, " ", amount_text, flags=re.I).strip(" ,.")
+    if re.search(r"\b(?:if|unless|provided|only\s+after)\b", amount_text, re.I):
+        return PaymentIntent(
+            action="unknown", confidence=1.0,
+            guardrail_reason="Unsupported payment condition. No payment was prepared; use an explicit approval or minimum-balance condition.",
+        )
+    conditions = PaymentConditions(
+        minimum_remaining_balance=min_remaining, confirm_if_above=confirm_above,
+        requires_approval=requires_approval,
+    )
 
     if "bill" in lower and any(x in lower for x in ["pay", "settle", "clear"]):
         provider = None

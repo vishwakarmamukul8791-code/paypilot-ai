@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class PaymentConditions(BaseModel):
+    requires_approval: bool = False
     minimum_remaining_balance: float | None = Field(default=None, ge=0)
     confirm_if_above: float | None = Field(default=None, ge=0)
 
@@ -24,6 +25,7 @@ class PaymentIntent(BaseModel):
 class AgentRequest(BaseModel):
     message: str = Field(min_length=2, max_length=600)
     source_account_id: int | None = Field(default=None, gt=0)
+    operation_id: str | None = Field(default=None, min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
 
 
 class DecisionRequest(BaseModel):
