@@ -110,6 +110,25 @@ def test_internal_transfer_retry_is_idempotent(client, session_headers):
     assert len(rows) == 2
 
 
+def test_internal_transfer_idempotency_key_rejects_changed_payload(client, session_headers):
+    destination = create_second(client, session_headers)
+    dashboard = client.get('/api/dashboard', headers=session_headers).json()
+    source = next(a for a in dashboard['accounts'] if a['is_primary'])
+    base = {
+        'source_account_id': source['id'],
+        'destination_account_id': destination['id'],
+        'amount': 1000,
+        'idempotency_key': 'payload-bound-transfer-001',
+    }
+    assert client.post('/api/accounts/transfer', headers=session_headers, json=base).status_code == 200
+    changed = client.post('/api/accounts/transfer', headers=session_headers, json={**base, 'amount': 2000})
+    assert changed.status_code == 409
+    assert 'different internal transfer' in changed.json()['detail'].lower()
+    latest = client.get('/api/dashboard', headers=session_headers).json()
+    assert next(a for a in latest['accounts'] if a['id'] == source['id'])['balance'] == 74000
+    assert next(a for a in latest['accounts'] if a['id'] == destination['id'])['balance'] == 13000
+
+
 def test_internal_transfer_rejects_same_account_and_insufficient_balance(client, session_headers):
     second = create_second(client, session_headers)
     dashboard = client.get('/api/dashboard', headers=session_headers).json()
