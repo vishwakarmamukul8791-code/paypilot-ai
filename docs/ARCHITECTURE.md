@@ -42,7 +42,7 @@ SQLite enables foreign keys, WAL, `synchronous=FULL`, a busy timeout and a 15-se
 The final check/execute path uses two levels of serialization:
 
 - a per-session in-process lock;
-- a database lock: `BEGIN IMMEDIATE` on SQLite or `SELECT ... FOR UPDATE` on the **selected source-account row** for databases such as PostgreSQL.
+- a database lock: `BEGIN IMMEDIATE` on SQLite or `SELECT ... FOR UPDATE` on the **selected source-account row** for databases such as PostgreSQL; bill execution additionally locks the authoritative pending-bill row.
 
 Inside that boundary PayPilot re-reads the destination/bill, risk, balance, daily spend and user conditions. Authorization, ledger debit, transaction row, bill state, payment state and final audit events are committed together. An idempotency key prevents a retry from creating a second transaction.
 

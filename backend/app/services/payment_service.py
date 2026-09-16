@@ -97,7 +97,7 @@ def execute_payment(db: Session, payment: PaymentRequest, *, commit: bool = True
                 Bill.session_id == payment.session_id,
                 Bill.provider == payment.beneficiary,
                 Bill.status == "PENDING",
-            )
+            ).with_for_update()
         )
         if not bill:
             raise ValueError("Pending bill no longer exists")

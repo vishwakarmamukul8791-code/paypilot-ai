@@ -5,6 +5,28 @@ from app.services.intent_service import parse_intent_rules
 def test_generic_destination_parsing(message,name,amount):
     i=parse_intent_rules(message); assert i.action=='transfer' and i.beneficiary==name and i.amount==amount
 
+
+@pytest.mark.parametrize('message', [
+    '₹5,000 to Alpha Payee Pay',
+    'INR 5000 to Alpha Payee transfer',
+    'Rs. 5,000 Alpha Payee send please',
+])
+def test_amount_first_payment_order_is_supported(message):
+    intent = parse_intent_rules(message)
+    assert intent.action == 'transfer'
+    assert intent.beneficiary == 'Alpha Payee'
+    assert intent.amount == 5000
+
+
+@pytest.mark.parametrize('message,token', [
+    ('Pay ₹100.999 to Alpha Payee', '100.999'),
+    ('₹2000.001 to Alpha Payee Pay', '2000.001'),
+])
+def test_excess_decimal_places_are_blocked_instead_of_truncated(message, token):
+    intent = parse_intent_rules(message)
+    assert intent.action == 'unknown'
+    assert token in (intent.guardrail_reason or '')
+
 def test_user_created_bill_provider_is_parsed_without_hardcoded_provider():
     i=parse_intent_rules('Pay my Utility One bill but ask me if it is above ₹3,000'); assert i.action=='pay_bill' and i.bill_provider=='Utility One' and i.conditions.confirm_if_above==3000 and i.amount is None
 
