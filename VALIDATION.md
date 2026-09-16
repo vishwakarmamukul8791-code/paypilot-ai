@@ -52,11 +52,15 @@ The automated suite covers:
 - atomic account-to-account transfers
 - paired DEBIT/CREDIT ledger entries
 - transfer idempotency and rollback
+- idempotency-key payload binding for internal transfers
 - payment destination management
 - duplicate destination-reference protection
 - bill management and bill integrity
+- concurrent bill-settlement row locking
 - deterministic payment intent parsing
 - malformed INR amount rejection
+- verb-first and amount-first payment phrasing
+- rejection of amounts with excess decimal places
 - LOW / MEDIUM / HIGH risk boundaries
 - payments up to ₹2,000 auto-authorizing after checks
 - payments above ₹2,000 requiring human approval
