@@ -297,7 +297,20 @@ def transfer_between_accounts(
             )
         )
         if existing_debit and existing_credit:
+            same_request = (
+                existing_debit.account_id == payload.source_account_id
+                and existing_credit.account_id == payload.destination_account_id
+                and existing_debit.amount == payload.amount
+                and existing_credit.amount == payload.amount
+                and existing_debit.direction == "DEBIT"
+                and existing_credit.direction == "CREDIT"
+            )
             db.rollback()
+            if not same_request:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Idempotency key was already used for a different internal transfer.",
+                )
             return _dashboard_payload(db, sid)
         if existing_debit or existing_credit:
             db.rollback()
