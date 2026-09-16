@@ -242,6 +242,8 @@ def _block_run(db, state: AgentState, summary: str, title: str, detail: dict) ->
 
 
 def _requires_human_approval(amount: Decimal, conditions: PaymentConditions) -> bool:
+    if conditions.requires_approval:
+        return True
     if amount > settings.auto_execute_threshold:
         return True
     if conditions.confirm_if_above is not None and amount > Decimal(str(conditions.confirm_if_above)):
