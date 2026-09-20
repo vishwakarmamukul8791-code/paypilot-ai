@@ -410,7 +410,11 @@ pip install -r requirements-dev.txt
 python -m uvicorn app.main:app --reload
 ```
 
+For Linux/macOS, activate with `source .venv/bin/activate`, then run the same pip and uvicorn commands.
+
 ### Frontend
+
+Open a **second terminal at the repository root**:
 
 ```bash
 cd frontend

@@ -39,7 +39,7 @@ def _invalid_money_token(text: str) -> str | None:
     for pattern in _MONEY_CAPTURE_PATTERNS:
         for match in re.finditer(pattern, text, re.I):
             token = match.group(1)
-            if _parse_money_token(token) is None:
+            if _parse_money_token(token) is None or _parse_money_token(token) <= 0:
                 return token
     return None
 
@@ -66,7 +66,9 @@ def _condition_amount(text: str, patterns: list[str]) -> tuple[float | None, str
     for pattern in patterns:
         match = re.search(pattern, text, re.I)
         if match:
-            value = float(match.group(1).replace(",", ""))
+            value = _parse_money_token(match.group(1))
+            if value is None:
+                raise ValueError("Invalid monetary condition")
             return value, text[: match.start()] + " " + text[match.end() :]
     return None, text
 
@@ -90,7 +92,7 @@ def _unsupported_instruction_reason(text: str) -> str | None:
         r"on\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|in\s+\d+\s*(?:minute|minutes|hour|hours|day|days)|"
         r"(?:at|after)\s+(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?|noon|midnight)"
     )
-    if re.search(rf"\b(?:pay|send|transfer|remit|recharge)\b.*\b(?:{future_terms})\b", lower) or re.search(r"\bschedule(?:d)?\b.*(?:₹|rs\.?|inr|pay|send|transfer|remit|recharge)", lower):
+    if re.search(r"\b(?:pay|send|transfer|remit|recharge)\b", lower) and re.search(rf"\b(?:{future_terms})\b", lower):
         return "Scheduled or recurring payments are not supported. Use an immediate single payment request."
     if re.search(r"\b(?:pay|send|transfer|remit|recharge)\b.*(?:,\s*)?\b(?:and\s+then|then)\b", lower):
         return "Chained payment instructions are not supported. Submit one immediate destination and amount at a time."
@@ -110,7 +112,7 @@ def _strip_money_token(value: str) -> str:
     return " ".join(value.split())
 
 
-def parse_intent_rules(message: str) -> PaymentIntent:
+def _parse_intent_rules(message: str) -> PaymentIntent:
     text = " ".join(message.strip().split())
     lower = text.lower()
     unsupported = _unsupported_instruction_reason(text)
@@ -132,13 +134,13 @@ def parse_intent_rules(message: str) -> PaymentIntent:
         return PaymentIntent(action="spend_summary")
 
     min_remaining, text_wo_min = _condition_amount(text, [
-        r"(?:leave|keep|remain(?:s|ing)?|stays?|balance stays?)\D{0,24}(?:₹|rs\.?|inr)?\s*([\d,]+)",
-        r"at least\s*(?:₹|rs\.?|inr)?\s*([\d,]+)\s*(?:remain|left|in my account)",
-        r"only if\D{0,30}(?:₹|rs\.?|inr)?\s*([\d,]+)\s*(?:remain|left|stays?)",
+        r"(?:leave|keep|remain(?:s|ing)?|stays?|balance stays?)\D{0,24}(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d+)?)",
+        r"at least\s*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d+)?)\s*(?:remain|left|in my account)",
+        r"only if\D{0,30}(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d+)?)\s*(?:remain|left|stays?)",
     ])
     confirm_above, amount_text = _condition_amount(text_wo_min, [
-        r"(?:ask me|confirm|approval).*?(?:above|over|more than)\s*(?:₹|rs\.?|inr)?\s*([\d,]+)",
-        r"(?:above|over|more than)\s*(?:₹|rs\.?|inr)?\s*([\d,]+).*?(?:ask|confirm|approval)",
+        r"(?:ask me|confirm|approval).*?(?:above|over|more than)\s*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d+)?)",
+        r"(?:above|over|more than)\s*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d+)?).*?(?:ask|confirm|approval)",
     ])
     approval_pattern = (
         r"\b(?:only\s+(?:if|after)\s+i\s+(?:approve|confirm)|"
@@ -185,6 +187,14 @@ def parse_intent_rules(message: str) -> PaymentIntent:
                 break
         return PaymentIntent(action="transfer", beneficiary=beneficiary, amount=amount, conditions=conditions, confidence=0.9)
     return PaymentIntent(action="unknown", confidence=0.35)
+
+
+def parse_intent_rules(message: str) -> PaymentIntent:
+    try:
+        return _parse_intent_rules(message)
+    except (ValueError, OverflowError):
+        return PaymentIntent(action="unknown", confidence=1.0,
+                             guardrail_reason="Invalid payment amount or condition. Use a positive INR amount with at most two decimal places.")
 
 
 def _merge_with_deterministic_safety(message: str, llm: PaymentIntent) -> PaymentIntent:

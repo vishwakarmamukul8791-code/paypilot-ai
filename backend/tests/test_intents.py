@@ -83,3 +83,22 @@ def test_clear_indian_or_plain_money_grouping_is_accepted(message, expected):
     intent = parse_intent_rules(message)
     assert intent.action == 'transfer'
     assert intent.amount == expected
+
+@pytest.mark.parametrize('message', [
+    'Tomorrow pay ₹100 to Alpha Payee',
+    'Next Monday send ₹100 to Alpha Payee',
+    'At 5 pm transfer ₹100 to Alpha Payee',
+    'Pay ₹0 to Alpha Payee',
+])
+def test_non_immediate_or_zero_payments_fail_closed(message):
+    intent = parse_intent_rules(message)
+    assert intent.action == 'unknown'
+    assert intent.guardrail_reason
+
+
+def test_decimal_conditions_preserve_paise():
+    intent = parse_intent_rules('Pay ₹100 to Alpha Payee but keep ₹1,000.50 in my account')
+    assert intent.amount == 100
+    assert intent.conditions.minimum_remaining_balance == 1000.50
+    intent = parse_intent_rules('Pay ₹100 to Alpha Payee but ask me above ₹99.50')
+    assert intent.conditions.confirm_if_above == 99.50

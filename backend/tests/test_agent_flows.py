@@ -178,3 +178,14 @@ def test_execution_failure_rolls_back_ledger_and_transaction(client, session_hea
     transactions = client.get('/api/transactions', headers=session_headers).json()
     assert dashboard['balance'] == 75000
     assert transactions == []
+
+@pytest.mark.parametrize('message', [
+    'Tomorrow pay ₹100 to Alpha Payee',
+    'Pay ₹100 to Alpha Payee but keep ₹74,900.50 in my account',
+    'Pay ₹0 to Alpha Payee',
+])
+def test_parser_regressions_do_not_mutate_balance(client, session_headers, message):
+    before = client.get('/api/dashboard', headers=session_headers).json()['balance']
+    run = start(client, session_headers, message)
+    assert run['status'] == 'BLOCKED'
+    assert client.get('/api/dashboard', headers=session_headers).json()['balance'] == before
